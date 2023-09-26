@@ -87,3 +87,13 @@ apiRouter.post<{}, { status: string }, { subject: string, body: string, emails: 
     }
     res.send({ status: 'ok' })
 })
+
+apiRouter.get('/users/csv', async (_, res) =>{
+    const users = await dashboard.getAllUsers()
+    const fields = ['id', 'email']
+    let r = fields.join(',')
+    for (const user of users) {
+        r+='\n'+fields.map((key)=>user[key]).join(',')
+    }
+    res.type('.csv').send(r)
+})
