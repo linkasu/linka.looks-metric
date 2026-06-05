@@ -1,0 +1,55 @@
+{{define "stats.html"}}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<main class="page">
+<section class="card">
+  <p class="eyebrow">Stats</p>
+  <h1>Метрики</h1>
+  <p class="muted">Generated at {{.Stats.GeneratedAtUTC}}</p>
+  <div class="grid">
+    <div class="metric"><span>Users</span><strong>{{.Stats.Users}}</strong></div>
+    <div class="metric"><span>PCs</span><strong>{{.Stats.PCs}}</strong></div>
+    <div class="metric"><span>Events</span><strong>{{.Stats.Events}}</strong></div>
+    <div class="metric"><span>Active 7d</span><strong>{{.Stats.Active7Days}}</strong></div>
+    <div class="metric"><span>Active 30d</span><strong>{{.Stats.Active30Days}}</strong></div>
+  </div>
+</section>
+
+<section class="columns">
+  <article class="card">
+    <h2>Events by type</h2>
+    <table><thead><tr><th>Type</th><th>Count</th></tr></thead><tbody>{{range .Stats.EventsByType}}<tr><td>{{.Name}}</td><td>{{.Count}}</td></tr>{{end}}</tbody></table>
+  </article>
+  <article class="card">
+    <h2>Versions</h2>
+    <table><thead><tr><th>Version</th><th>PCs</th></tr></thead><tbody>{{range .Stats.Versions}}<tr><td>{{.Name}}</td><td>{{.Count}}</td></tr>{{end}}</tbody></table>
+  </article>
+</section>
+
+<section class="card">
+  <h2>Daily activity</h2>
+  <table><thead><tr><th>Day</th><th>Events</th><th>Active PCs</th></tr></thead><tbody>{{range .Stats.Daily}}<tr><td>{{.Day}}</td><td>{{.Events}}</td><td>{{.ActivePCs}}</td></tr>{{end}}</tbody></table>
+</section>
+
+<section class="columns">
+  <article class="card">
+    <h2>Recent users</h2>
+    <table><thead><tr><th>ID</th><th>Email</th><th>PCs</th></tr></thead><tbody>{{range .Stats.RecentUsers}}<tr><td>{{.ID}}</td><td>{{.MaskedEmail}}</td><td>{{.PCCount}}</td></tr>{{end}}</tbody></table>
+  </article>
+  <article class="card">
+    <h2>Recent events</h2>
+    <table><thead><tr><th>ID</th><th>Type</th><th>Date</th><th>PC</th></tr></thead><tbody>{{range .Stats.RecentEvents}}<tr><td>{{.ID}}</td><td>{{.Type}}</td><td>{{.Date}}</td><td>{{.PCID}}</td></tr>{{end}}</tbody></table>
+  </article>
+</section>
+</main>
+</body>
+</html>
+{{end}}

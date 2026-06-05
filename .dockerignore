@@ -1,9 +1,9 @@
+.git
 .env
-data/*
-!data/.gitkeep
+data
 *.db
 *.db-shm
 *.db-wal
+coverage.out
 /metric-api
 /linka-metric-api
-coverage.out

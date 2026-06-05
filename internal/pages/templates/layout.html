@@ -1,0 +1,17 @@
+{{define "layout.html"}}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <main class="page">
+    {{template "content" .}}
+  </main>
+</body>
+</html>
+{{end}}

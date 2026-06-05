@@ -1,0 +1,23 @@
+{{define "privacy.html"}}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<main class="page">
+<section class="card">
+  <p class="eyebrow">Privacy</p>
+  <h1>Какие данные собираются</h1>
+  <p>Сервис хранит email, выданный идентификатор устройства и технические события приложения. Эти данные нужны для активации и понимания использования функций.</p>
+  <p>События не предназначены для публичного просмотра. Доступ к статистике закрывается на уровне nginx Basic Auth.</p>
+  <a href="/">На главную</a>
+</section>
+</main>
+</body>
+</html>
+{{end}}
