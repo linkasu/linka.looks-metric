@@ -97,7 +97,7 @@ jobs:
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
             "${{ secrets.LINKA_SU_USER }}@${{ secrets.LINKA_SU_HOST }}" \
-            "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'REMOTE'
+            "DEPLOY_PATH='${DEPLOY_PATH}' GHCR_USER='${{ github.actor }}' GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}' bash -s" <<'REMOTE'
           set -euo pipefail
           cd "$DEPLOY_PATH"
           find "$DEPLOY_PATH" -mindepth 1 -maxdepth 1 \
@@ -107,6 +107,8 @@ jobs:
             ! -name backups \
             ! -name STATS_BASIC_AUTH.txt \
             -exec rm -rf {} +
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          printf '%s\n' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
           docker compose pull metric
           docker compose up -d metric
           docker compose ps metric
