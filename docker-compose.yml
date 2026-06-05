@@ -1,7 +1,6 @@
 services:
   metric:
-    build: .
-    image: linka-looks-metric:latest
+    image: ghcr.io/linkasu/linka.looks-metric:latest
     restart: unless-stopped
     env_file:
       - .env

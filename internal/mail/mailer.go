@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/smtp"
 	"strings"
 	"time"
@@ -39,6 +40,11 @@ func (m *SMTPMailer) SendHTML(ctx context.Context, to string, subject string, ht
 
 	done := make(chan error, 1)
 	go func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				done <- fmt.Errorf("send mail panic: %v", recovered)
+			}
+		}()
 		done <- m.sendHTML(to, subject, html)
 	}()
 
@@ -52,7 +58,11 @@ func (m *SMTPMailer) SendHTML(ctx context.Context, to string, subject string, ht
 
 func (m *SMTPMailer) sendHTML(to string, subject string, html string) error {
 	addr := fmt.Sprintf("%s:%d", m.cfg.Host, m.cfg.Port)
-	conn, err := tls.DialWithDialer(nil, "tcp", addr, &tls.Config{ServerName: m.cfg.Host})
+	dialer := &net.Dialer{Timeout: 20 * time.Second}
+	conn, err := tls.DialWithDialer(dialer, "tcp", addr, &tls.Config{
+		ServerName: m.cfg.Host,
+		MinVersion: tls.VersionTLS12,
+	})
 	if err != nil {
 		return err
 	}

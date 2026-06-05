@@ -5,9 +5,15 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  IMAGE_NAME: ghcr.io/linkasu/linka.looks-metric
 
 jobs:
   test:
@@ -27,12 +33,89 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build image
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: false
-          tags: linka-looks-metric:ci
+          push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: docker
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    env:
+      DEPLOY_PATH: /home/aacidov/docker/linka.looks-metric
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.LINKA_SU_SSH_KEY }}" > ~/.ssh/linka_su
+          chmod 600 ~/.ssh/linka_su
+          ssh-keyscan -H "${{ secrets.LINKA_SU_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload compose file
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/linka_su \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${{ secrets.LINKA_SU_USER }}@${{ secrets.LINKA_SU_HOST }}" \
+            "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          mkdir -p "$DEPLOY_PATH"
+          REMOTE
+          scp -i ~/.ssh/linka_su \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            docker-compose.yml \
+            "${{ secrets.LINKA_SU_USER }}@${{ secrets.LINKA_SU_HOST }}:${DEPLOY_PATH}/docker-compose.yml"
+
+      - name: Pull image and restart metric
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/linka_su \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${{ secrets.LINKA_SU_USER }}@${{ secrets.LINKA_SU_HOST }}" \
+            "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          find "$DEPLOY_PATH" -mindepth 1 -maxdepth 1 \
+            ! -name docker-compose.yml \
+            ! -name .env \
+            ! -name data \
+            ! -name backups \
+            ! -name STATS_BASIC_AUTH.txt \
+            -exec rm -rf {} +
+          docker compose pull metric
+          docker compose up -d metric
+          docker compose ps metric
+          for attempt in $(seq 1 20); do
+            if docker compose exec -T metric /app/metric-api healthcheck; then
+              exit 0
+            fi
+            sleep 3
+          done
+          docker compose logs --no-color --tail 120 metric
+          exit 1
+          REMOTE
