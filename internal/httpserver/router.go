@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -25,9 +24,11 @@ import (
 )
 
 const (
-	jsonContentType = "application/json; charset=utf-8"
-	maxPublicBody   = 2048
-	maxEventBody    = 16 * 1024
+	jsonContentType         = "application/json; charset=utf-8"
+	maxPublicBody           = 2048
+	maxEventBody            = 16 * 1024
+	currentConsentPolicy    = "technical-events"
+	currentConsentPolicyVer = 1
 )
 
 var (
@@ -43,6 +44,12 @@ type Server struct {
 	pages   *pages.Renderer
 	limiter *ratelimit.Limiter
 	started time.Time
+}
+
+type eventConsentProof struct {
+	Policy  string `json:"policy"`
+	Version int    `json:"version"`
+	Granted bool   `json:"granted"`
 }
 
 func New(cfg config.Config, store *db.Store, mailer mail.Mailer, logger *slog.Logger) http.Handler {
@@ -190,11 +197,16 @@ func (s *Server) activate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) registerEvent(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Hash      string          `json:"hash"`
-		EventName string          `json:"eventName"`
-		EventData json.RawMessage `json:"eventData"`
+		Hash            string             `json:"hash"`
+		EventName       string             `json:"eventName"`
+		LegacyEventData json.RawMessage    `json:"eventData"`
+		Consent         *eventConsentProof `json:"consent"`
 	}
 	if !s.readJSON(w, r, maxEventBody, &body) {
+		return
+	}
+	if body.Consent == nil || body.Consent.Policy != currentConsentPolicy || body.Consent.Version != currentConsentPolicyVer || !body.Consent.Granted {
+		s.writeJSON(w, http.StatusOK, map[string]string{"message": "Event ignored without current consent."})
 		return
 	}
 	hash := strings.TrimSpace(body.Hash)
@@ -210,20 +222,10 @@ func (s *Server) registerEvent(w http.ResponseWriter, r *http.Request) {
 		s.badRequest(w)
 		return
 	}
-	var content *string
-	if len(body.EventData) > 0 && !bytes.Equal(body.EventData, []byte("null")) {
-		compact := bytes.Buffer{}
-		if err := json.Compact(&compact, body.EventData); err != nil {
-			s.badRequest(w)
-			return
-		}
-		value := compact.String()
-		content = &value
-	}
 	version := parseVersion(r.UserAgent())
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	if err := s.store.RegisterEvent(ctx, hash, eventName, content, version); err != nil {
+	if err := s.store.RegisterEvent(ctx, hash, eventName, version); err != nil {
 		s.badRequest(w)
 		return
 	}
@@ -235,6 +237,11 @@ func (s *Server) readJSON(w http.ResponseWriter, r *http.Request, limit int64, d
 	decoder := json.NewDecoder(io.LimitReader(r.Body, limit+1))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(dst); err != nil {
+		s.badRequest(w)
+		return false
+	}
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); err != io.EOF {
 		s.badRequest(w)
 		return false
 	}

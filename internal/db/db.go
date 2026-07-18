@@ -183,7 +183,7 @@ func (s *Store) Activate(ctx context.Context, email string, code string, hash st
 	return tx.Commit()
 }
 
-func (s *Store) RegisterEvent(ctx context.Context, hash string, eventName string, content *string, version string) error {
+func (s *Store) RegisterEvent(ctx context.Context, hash string, eventName string, version string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -199,7 +199,7 @@ func (s *Store) RegisterEvent(ctx context.Context, hash string, eventName string
 			return err
 		}
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO "Event" (type, content, date, "pcId", "userId") VALUES (?, ?, ?, ?, ?)`, eventName, content, time.Now().UnixMilli(), pc.ID, pc.UserID); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO "Event" (type, content, date, "pcId", "userId") VALUES (?, NULL, ?, ?, ?)`, eventName, time.Now().UnixMilli(), pc.ID, pc.UserID); err != nil {
 		return err
 	}
 	return tx.Commit()
