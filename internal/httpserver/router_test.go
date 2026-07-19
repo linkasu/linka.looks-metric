@@ -123,6 +123,27 @@ func TestCurrentConsentStoresEventWithNullContent(t *testing.T) {
 	}
 }
 
+func TestCurrentConsentRejectsUnknownEventName(t *testing.T) {
+	store, handler, mailer, _ := newTestServer(t)
+	hash := activateTestPC(t, handler, mailer)
+	postJSON(t, handler, "/registerEvent", map[string]any{
+		"hash":      hash,
+		"eventName": "privateText",
+		"consent": map[string]any{
+			"policy":  currentConsentPolicy,
+			"version": currentConsentPolicyVer,
+			"granted": true,
+		},
+	}, http.StatusBadRequest, nil)
+	stats, err := store.LoadStats(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Events != 0 {
+		t.Fatalf("unknown event was stored: %d", stats.Events)
+	}
+}
+
 func TestOutdatedConsentIsAcceptedAsNoOp(t *testing.T) {
 	store, handler, mailer, _ := newTestServer(t)
 	hash := activateTestPC(t, handler, mailer)

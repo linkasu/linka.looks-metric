@@ -6,6 +6,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/metric-api ./cmd/metric-api
 RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/sanitize-history ./cmd/sanitize-history
+RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/export-events ./cmd/export-events
 
 FROM debian:bookworm-slim
 
@@ -16,6 +17,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=build /out/metric-api /app/metric-api
 COPY --from=build /out/sanitize-history /app/sanitize-history
+COPY --from=build /out/export-events /app/export-events
 RUN mkdir -p /data
 
 EXPOSE 30812
