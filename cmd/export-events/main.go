@@ -59,9 +59,10 @@ func export(ctx context.Context, databasePath string, fromID int64, output io.Wr
 	encoder := json.NewEncoder(output)
 	var count uint64
 	for rows.Next() {
-		var id, dateMS int64
+		var id int64
+		var dateValue any
 		var kind, subject, version string
-		if err := rows.Scan(&id, &kind, &dateMS, &subject, &version); err != nil {
+		if err := rows.Scan(&id, &kind, &dateValue, &subject, &version); err != nil {
 			return err
 		}
 		if !events.Allowed(kind) {
@@ -70,7 +71,10 @@ func export(ctx context.Context, databasePath string, fromID int64, output io.Wr
 		if _, err := uuid.Parse(subject); err != nil {
 			return fmt.Errorf("Event %d has invalid PC hash", id)
 		}
-		occurredAt := time.UnixMilli(dateMS).UTC()
+		occurredAt, err := eventTime(dateValue)
+		if err != nil {
+			return fmt.Errorf("Event %d date: %w", id, err)
+		}
 		if occurredAt.Before(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)) || !occurredAt.Before(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)) {
 			return fmt.Errorf("Event %d timestamp is outside the supported range", id)
 		}
@@ -90,6 +94,17 @@ func export(ctx context.Context, databasePath string, fromID int64, output io.Wr
 	}
 	fmt.Fprintf(os.Stderr, "exported_events=%d\n", count)
 	return nil
+}
+
+func eventTime(value any) (time.Time, error) {
+	switch value := value.(type) {
+	case time.Time:
+		return value.UTC(), nil
+	case int64:
+		return time.UnixMilli(value).UTC(), nil
+	default:
+		return time.Time{}, fmt.Errorf("unsupported SQLite type %T", value)
+	}
 }
 
 func defaultDatabasePath() string {
