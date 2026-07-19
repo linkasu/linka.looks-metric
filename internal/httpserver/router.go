@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/linkasu/linka.looks-metric/internal/config"
 	"github.com/linkasu/linka.looks-metric/internal/db"
+	"github.com/linkasu/linka.looks-metric/internal/events"
 	"github.com/linkasu/linka.looks-metric/internal/mail"
 	"github.com/linkasu/linka.looks-metric/internal/pages"
 	"github.com/linkasu/linka.looks-metric/internal/ratelimit"
@@ -218,7 +219,7 @@ func (s *Server) registerEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eventName := strings.TrimSpace(body.EventName)
-	if eventName == "" || len(eventName) > 128 {
+	if !events.Allowed(eventName) {
 		s.badRequest(w)
 		return
 	}
